@@ -1,10 +1,12 @@
 <template>
   <div class="camera">
-    <h1>This is an camera page</h1>
+    <h1>This is a camera page</h1>
     <button v-on:click="startVideoStream">startVideoStream</button>
     <button v-on:click="frameShooting">frameShooting</button>
     <button v-on:click="apiTest">apiTest</button>
     <button v-on:click="createCollection">createCollection</button>
+    <button v-on:click="indexFaces">indexFaces</button>
+    <button v-on:click="sendToS3">sendToS3</button>
     <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
     <img id="img">
@@ -55,15 +57,47 @@ export default {
     sendToS3: function() {
       //WIP
       var canvas = document.getElementById('canvas')
-      var s3 = new AWS.S3()
-      var bucketName
-      canvas.toBlob(function(blob) {
-
+      var bucketName = "hitosagashi"
+      var fileName = Date.now().toString() + '.jpg'
+      var s3 = new AWS.S3({
+        params: {
+          Bucket: bucketName
+        }
       })
+      var base64 = canvas.toDataURL('image/jpeg')
+      var blob = dataURItoBlob(base64)
+      s3.putObject({
+        Key: fileName,
+        Body: blob
+      }, function(err, data) {
+        if(err) console.log(err, err.stack)
+        else console.log(data)
+      })
+      // canvas.toBlob(function(blob) {
+      //   s3.putObject({
+      //   Key: fileName,
+      //   Body: blob
+      //   }, function(err, data){
+      //     if(err) console.log(err, err.stack)
+      //     else console.log(data)
+      //   })
+      // }, 'image/jpeg', 0.95)
+      function dataURItoBlob(dataURI) {
+        var binary = atob(dataURI.split(',')[1]);
+        var array = [];
+        for(var i = 0; i < binary.length; i++) {
+          array.push(binary.charCodeAt(i));
+        }
+      return new Blob([new Uint8Array(array)], {type: 'image/jpeg'});
+      }
+    },
+    sendToRekognition: function() {
+      var canvas = document.getElementById('canvas')
+      var fileName = Date.now().toString()
     },
     rekognition: function() {
       //WIP
-      var rekognition = new AWS.Rekognition()      
+      var rekognition = new AWS.Rekognition() 
     },
     createCollection: function() {
       var params = {
@@ -72,6 +106,24 @@ export default {
       var rekognition = new AWS.Rekognition()
 
       rekognition.createCollection(params, function(err, data) {
+        if(err) console.log(err, err.stack)
+        else console.log(data)
+      })
+    },
+    indexFaces: function() {
+      var canvas = document.getElementById('canvas')
+      
+      
+      var params = {
+        Image: {
+          Bytes: imageBytes
+        },
+        CollectionId: "myphotos",
+        MaxFaces: 1,
+      }
+      var rekognition = new AWS.Rekognition()
+
+      rekognition.indexFaces(params, function(err, data) {
         if(err) console.log(err, err.stack)
         else console.log(data)
       })
