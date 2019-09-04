@@ -7,6 +7,7 @@
     <button v-on:click="createCollection">createCollection</button>
     <button v-on:click="indexFaces">indexFaces</button>
     <button v-on:click="sendToS3">sendToS3</button>
+    <button v-on:click="sendToRekognition">sendToRekognition</button>
     <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
     <img id="img">
@@ -93,7 +94,29 @@ export default {
     },
     sendToRekognition: function() {
       var canvas = document.getElementById('canvas')
-      var fileName = Date.now().toString()
+      var base64 = canvas.toDataURL('image/jpeg')
+      var rekognition = new AWS.Rekognition()
+      var collectionId = "myphotos"
+      var buf = toBinary(canvas)
+      var params = {
+        CollectionId: "myphotos",
+        Image: {
+          Bytes: buf
+        }
+      }
+      rekognition.searchFacesByImage(params, function(err, data) {
+        if(err) console.log(err, err.stack)
+        else console.log(data) 
+      })
+      function toBinary(canvas) {
+        var base64 = canvas.toDataURL('image/jpeg')
+        var bin = atob(base64.replace(/^.*,/, ''))
+        var buffer = new Uint8Array(bin.length)
+        for (var i = 0; i < bin.length; i++) {
+          buffer[i] = bin.charCodeAt(i)
+        }
+        return buffer
+      }
     },
     rekognition: function() {
       //WIP
