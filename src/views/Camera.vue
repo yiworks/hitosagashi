@@ -3,6 +3,7 @@
     <h1>This is a camera page</h1>
     <button v-on:click="startVideoStream">startVideoStream</button>
     <button v-on:click="startVideoStream2">startVideoStream2</button>
+    <button v-on:click="strokeBoundingBox">strokeBoundingBox</button>
     <button v-on:click="frameShooting">frameShooting</button>
     <button v-on:click="apiTest">apiTest</button>
     <button v-on:click="createCollection">createCollection</button>
@@ -64,9 +65,46 @@ export default {
         // filter(image.data)
         offscreenCtx.putImageData(image, 0, 0)
         ctx.drawImage(offscreenCanvas, 0, 0)
+
+        const faceBoundingBox = {
+        Height: 0.49965885281562805,
+        Left: 0.4105621874332428,
+        Top: 0.24500948190689087,
+        Width: 0.18915815651416779
+        }
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'red'
+        ctx.beginPath()
+        ctx.rect(faceBoundingBox.Left * canvas.width,
+          faceBoundingBox.Top * canvas.height,
+          faceBoundingBox.Width * canvas.width,
+          faceBoundingBox.Height * canvas.height,
+        )
+        ctx.stroke()
+
         window.requestAnimationFrame(tick)
       }
     },
+    strokeBoundingBox: function() {
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
+      const faceBoundingBox = {
+        Height: 0.49965885281562805,
+        Left: 0.4105621874332428,
+        Top: 0.24500948190689087,
+        Width: 0.18915815651416779
+      }
+      ctx.lineWidth = 2
+      ctx.strokeStyle = 'red'
+      ctx.beginPath()
+      ctx.rect(faceBoundingBox.Left * canvas.width,
+        faceBoundingBox.Top * canvas.height,
+        faceBoundingBox.Width * canvas.width,
+        faceBoundingBox.Height * canvas.height,
+      )
+      ctx.stroke()
+    },
+
     frameShooting: function() {
       var video = document.getElementById('video')
       var canvas = document.getElementById('frameshoot')
