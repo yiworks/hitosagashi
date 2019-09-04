@@ -2,14 +2,16 @@
   <div class="camera">
     <h1>This is a camera page</h1>
     <button v-on:click="startVideoStream">startVideoStream</button>
+    <button v-on:click="startVideoStream2">startVideoStream2</button>
     <button v-on:click="frameShooting">frameShooting</button>
     <button v-on:click="apiTest">apiTest</button>
     <button v-on:click="createCollection">createCollection</button>
     <button v-on:click="indexFaces">indexFaces</button>
     <button v-on:click="sendToS3">sendToS3</button>
     <button v-on:click="sendToRekognition">sendToRekognition</button>
-    <video id="video" autoplay playsinline="true"></video>
+    <video id="video" playsinline="true"></video>
     <canvas id="canvas"></canvas>
+    <canvas id="frameshoot"></canvas>
     <img id="img">
   </div>
 </template>
@@ -36,9 +38,38 @@ export default {
         window.alert(err.name + ': ' + err.message)
       })
     },
+    startVideoStream2: async function() {
+      // Video
+      const video = document.createElement("video")
+      const constrains = { video: true, audio: false }
+      const stream = await navigator.mediaDevices.getUserMedia(constrains)
+      video.srcObject = stream
+      // 表示用Canvas
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
+      // 処理用Canvas
+      const offscreenCanvas = document.createElement("canvas")
+      const offscreenCtx = offscreenCanvas.getContext("2d")
+
+      video.onloadedmetadata = () => {
+        video.play()
+        canvas.width = offscreenCanvas.width = video.videoWidth
+        canvas.height = offscreenCanvas.height = video.videoHeight
+
+        tick()
+      }
+      function tick() {
+        offscreenCtx.drawImage(video, 0, 0)        
+        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+        // filter(image.data)
+        offscreenCtx.putImageData(image, 0, 0)
+        ctx.drawImage(offscreenCanvas, 0, 0)
+        window.requestAnimationFrame(tick)
+      }
+    },
     frameShooting: function() {
       var video = document.getElementById('video')
-      var canvas = document.getElementById('canvas')
+      var canvas = document.getElementById('frameshoot')
       var ctx = canvas.getContext('2d')
       var width = video.offsetWidth;
       var height = video.offsetHeight
