@@ -3,16 +3,15 @@
     <h1>This is a camera page</h1>
     <button v-on:click="startVideoStream">startVideoStream</button>
     <button v-on:click="startVideoStream2">startVideoStream2</button>
-    <button v-on:click="strokeBoundingBox">strokeBoundingBox</button>
     <button v-on:click="frameShooting">frameShooting</button>
     <button v-on:click="apiTest">apiTest</button>
     <button v-on:click="createCollection">createCollection</button>
     <button v-on:click="indexFaces">indexFaces</button>
     <button v-on:click="sendToS3">sendToS3</button>
     <button v-on:click="sendToRekognition">sendToRekognition</button>
-    <video id="video" playsinline="true"></video>
+    <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
-    <canvas id="frameshoot"></canvas>
+    <canvas id="frameshot"></canvas>
     <img id="img">
   </div>
 </template>
@@ -52,62 +51,115 @@ export default {
       const offscreenCanvas = document.createElement("canvas")
       const offscreenCtx = offscreenCanvas.getContext("2d")
 
+      var count = 0
+
+      var BoundingBox = {
+        Height: Math.random(),
+        Left: Math.random(),
+        Top: Math.random(),
+        Width: Math.random()
+      }
+
+      let faceBoundingBox = {}
+
       video.onloadedmetadata = () => {
         video.play()
         canvas.width = offscreenCanvas.width = video.videoWidth
         canvas.height = offscreenCanvas.height = video.videoHeight
+        
 
         tick()
       }
+
+      let faceSearch = async() => {
+        var base64 = canvas.toDataURL('image/jpeg')
+        var rekognition = new AWS.Rekognition()
+        var collectionId = "myphotos"
+        var buf = toBinary(canvas)
+        var params = {
+          CollectionId: "myphotos",
+          Image: {
+            Bytes: buf
+          }
+        }
+        
+        const searchFacesByImage = () => new Promise((resolve, reject) => {
+          rekognition.searchFacesByImage(params, function(err, data) {
+            if(err) {
+              console.log(err, err.stack)
+              reject(err)
+            } else {
+              console.log(data)
+              resolve(data)
+            }
+          })
+        })
+        
+        return searchFacesByImage().then((res => {
+          return res
+        }))
+
+        function toBinary(canvas) {
+          var base64 = canvas.toDataURL('image/jpeg')
+          var bin = atob(base64.replace(/^.*,/, ''))
+          var buffer = new Uint8Array(bin.length)
+          for (var i = 0; i < bin.length; i++) {
+            buffer[i] = bin.charCodeAt(i)
+          }
+          return buffer
+        }
+      }
       function tick() {
+        count ++
         offscreenCtx.drawImage(video, 0, 0)        
         const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
         // filter(image.data)
         offscreenCtx.putImageData(image, 0, 0)
         ctx.drawImage(offscreenCanvas, 0, 0)
 
-        const faceBoundingBox = {
-        Height: 0.49965885281562805,
-        Left: 0.4105621874332428,
-        Top: 0.24500948190689087,
-        Width: 0.18915815651416779
+        if(count % 100 === 0 && count <= 3000){
+          faceSearch().then(result => {
+            faceBoundingBox = {
+              Height: result.SearchedFaceBoundingBox.Height,
+              Left: result.SearchedFaceBoundingBox.Left,
+              Top: result.SearchedFaceBoundingBox.Top,
+              Width: result.SearchedFaceBoundingBox.Height
+            } 
+          })
+          // faceBoundingBox = {
+          //   Height: Math.random(),
+          //   Left: Math.random(),
+          //   Top: Math.random(),
+          //   Width: Math.random()
+          // } 
+          // faceBoundingBox = {
+          //   Height: search.SearchedFaceBoundingBox.Height,
+          //   Left: search.SearchedFaceBoundingBox.Left,
+          //   Top: search.SearchedFaceBoundingBox.Top,
+          //   Width: search.SearchedFaceBoundingBox.Height
+          // } 
         }
-        ctx.lineWidth = 2
-        ctx.strokeStyle = 'red'
-        ctx.beginPath()
-        ctx.rect(faceBoundingBox.Left * canvas.width,
-          faceBoundingBox.Top * canvas.height,
-          faceBoundingBox.Width * canvas.width,
-          faceBoundingBox.Height * canvas.height,
-        )
-        ctx.stroke()
 
+        if(Object.keys(faceBoundingBox).length){
+          ctx.lineWidth = 2
+          ctx.strokeStyle = 'red'
+          ctx.beginPath()
+          ctx.rect(faceBoundingBox.Left * canvas.width,
+            faceBoundingBox.Top * canvas.height,
+            faceBoundingBox.Width * canvas.width,
+            faceBoundingBox.Height * canvas.height,
+          )
+          ctx.stroke()
+        }
+                
+        console.log(count)
         window.requestAnimationFrame(tick)
       }
     },
-    strokeBoundingBox: function() {
-      const canvas = document.getElementById("canvas")
-      const ctx = canvas.getContext("2d")
-      const faceBoundingBox = {
-        Height: 0.49965885281562805,
-        Left: 0.4105621874332428,
-        Top: 0.24500948190689087,
-        Width: 0.18915815651416779
-      }
-      ctx.lineWidth = 2
-      ctx.strokeStyle = 'red'
-      ctx.beginPath()
-      ctx.rect(faceBoundingBox.Left * canvas.width,
-        faceBoundingBox.Top * canvas.height,
-        faceBoundingBox.Width * canvas.width,
-        faceBoundingBox.Height * canvas.height,
-      )
-      ctx.stroke()
-    },
-
+  
     frameShooting: function() {
       var video = document.getElementById('video')
-      var canvas = document.getElementById('frameshoot')
+      var canvas = document.getElementById('frameshot')
       var ctx = canvas.getContext('2d')
       var width = video.offsetWidth;
       var height = video.offsetHeight
