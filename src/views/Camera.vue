@@ -1,7 +1,17 @@
 <template>
   <div class="camera">
-    <h1>This is a camera page</h1>
+    <h1>This is a hitosagashi</h1>
+    <input type="file" @change="onFileChange">
+    <div class="preview-image">
+      <img
+        v-show="uploadedImage"
+        class=""
+        :src="uploadedImage"
+        alt=""
+       />
+    </div>
     <p>Collection ID: {{ collectionId }}</p>
+    <button v-on:click="consoleLog">consoleLog</button>
     <button v-on:click="startVideoStream">startVideoStream</button>
     <button v-on:click="startVideoStream2">startVideoStream2</button>
     <button v-on:click="frameShooting">frameShooting</button>
@@ -30,6 +40,7 @@ export default {
   data() {
     return {
       collectionId: 0,
+      uploadedImage: ''
     }
   },
 
@@ -85,7 +96,7 @@ export default {
         var base64 = canvas.toDataURL('image/jpeg')
         var rekognition = new AWS.Rekognition()
         var collectionId = "myphotos"
-        var buf = toBinary(canvas)
+        var buf = this.base64ToBinary(base64)
         var params = {
           CollectionId: "myphotos",
           Image: {
@@ -109,15 +120,15 @@ export default {
           return res
         }))
 
-        function toBinary(canvas) {
-          var base64 = canvas.toDataURL('image/jpeg')
-          var bin = atob(base64.replace(/^.*,/, ''))
-          var buffer = new Uint8Array(bin.length)
-          for (var i = 0; i < bin.length; i++) {
-            buffer[i] = bin.charCodeAt(i)
-          }
-          return buffer
-        }
+        // function base64ToBinary(canvas) {
+        //   var base64 = canvas.toDataURL('image/jpeg')
+        //   var bin = atob(base64.replace(/^.*,/, ''))
+        //   var buffer = new Uint8Array(bin.length)
+        //   for (var i = 0; i < bin.length; i++) {
+        //     buffer[i] = bin.charCodeAt(i)
+        //   }
+        //   return buffer
+        // }
       }
       function tick() {
         count ++
@@ -215,10 +226,10 @@ export default {
       var canvas = document.getElementById('canvas')
       var base64 = canvas.toDataURL('image/jpeg')
       var rekognition = new AWS.Rekognition()
-      var collectionId = "myphotos"
-      var buf = toBinary(canvas)
+      // var collectionId = "myphotos"
+      var buf = this.base64ToBinary(base64)
       var params = {
-        CollectionId: "myphotos",
+        CollectionId: this.collectionId,
         Image: {
           Bytes: buf
         }
@@ -227,16 +238,27 @@ export default {
         if(err) console.log(err, err.stack)
         else console.log(data) 
       })
-      function toBinary(canvas) {
-        var base64 = canvas.toDataURL('image/jpeg')
-        var bin = atob(base64.replace(/^.*,/, ''))
-        var buffer = new Uint8Array(bin.length)
-        for (var i = 0; i < bin.length; i++) {
-          buffer[i] = bin.charCodeAt(i)
-        }
-        return buffer
-      }
+      // function base64ToBinary(canvas) {
+      //   var base64 = canvas.toDataURL('image/jpeg')
+      //   var bin = atob(base64.replace(/^.*,/, ''))
+      //   var buffer = new Uint8Array(bin.length)
+      //   for (var i = 0; i < bin.length; i++) {
+      //     buffer[i] = bin.charCodeAt(i)
+      //   }
+      //   return buffer
+      // }
     },
+
+    base64ToBinary: function(base64) {
+      console.log(base64)
+      var bin = atob(base64.replace(/^.*,/, ''))
+      var buffer = new Uint8Array(bin.length)
+      for (var i = 0; i < bin.length; i++) {
+        buffer[i] = bin.charCodeAt(i)
+      }
+      return buffer
+    },
+
     rekognition: function() {
       //WIP
       var rekognition = new AWS.Rekognition() 
@@ -259,20 +281,19 @@ export default {
       }
       var rekognition = new AWS.Rekognition()
 
-      // rekognition.createCollection(params, function(err, data) {
-      //   if(err) console.log(err, err.stack)
-      //   else console.log(data)
-      // })
+      rekognition.createCollection(params, function(err, data) {
+        if(err) console.log(err, err.stack)
+        else console.log(data)
+      })
     },
     indexFaces: function() {
-      var canvas = document.getElementById('canvas')
-      
-      
+      // var canvas = document.getElementById('canvas')
+      var buf = this.base64ToBinary(this.uploadedImage)
       var params = {
         Image: {
-          Bytes: imageBytes
+          Bytes: buf
         },
-        CollectionId: "myphotos",
+        CollectionId: this.collectionId.toString(),
         MaxFaces: 1,
       }
       var rekognition = new AWS.Rekognition()
@@ -281,7 +302,25 @@ export default {
         if(err) console.log(err, err.stack)
         else console.log(data)
       })
-    }
+    },
+
+    onFileChange: function(e) {
+      const files = e.target.files || e.dataTransfer.files
+      this.createImage(files[0])
+      this.img_name = files[0].name
+    },
+
+    createImage: function(file) {
+      const reader = new FileReader()
+      reader.onload = e => {
+        this.uploadedImage = e.target.result
+      }
+      reader.readAsDataURL(file)
+    },
+
+    consoleLog: function() {
+      console.log(typeof(this.uploadedImage))
+    },
   }
 }
 </script>
