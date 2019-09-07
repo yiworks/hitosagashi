@@ -20,6 +20,7 @@
     <button v-on:click="indexFaces">indexFaces</button>
     <button v-on:click="sendToS3">sendToS3</button>
     <button v-on:click="sendToRekognition">sendToRekognition</button>
+    <!-- <button v-on:click="searchFacesByImage(uploadedImage)">searchFacesByImage</button> -->
     <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
     <canvas id="frameshot"></canvas>
@@ -74,6 +75,9 @@ export default {
 
       var count = 0
 
+      const sourceImage = this.uploadedImage
+      // const compareFaces = this.compareFaces
+
       var BoundingBox = {
         Height: Math.random(),
         Left: Math.random(),
@@ -93,12 +97,13 @@ export default {
       }
 
       let faceSearch = async() => {
-        var base64 = canvas.toDataURL('image/jpeg')
+        var base64 = offscreenCanvas.toDataURL('image/jpeg')
         var rekognition = new AWS.Rekognition()
-        var collectionId = "myphotos"
+        // var collectionId = "myphotos"
         var buf = this.base64ToBinary(base64)
         var params = {
-          CollectionId: "myphotos",
+          // CollectionId: "myphotos",
+          CollectionId: this.collectionId,
           Image: {
             Bytes: buf
           }
@@ -119,17 +124,34 @@ export default {
         return searchFacesByImage().then((res => {
           return res
         }))
-
-        // function base64ToBinary(canvas) {
-        //   var base64 = canvas.toDataURL('image/jpeg')
-        //   var bin = atob(base64.replace(/^.*,/, ''))
-        //   var buffer = new Uint8Array(bin.length)
-        //   for (var i = 0; i < bin.length; i++) {
-        //     buffer[i] = bin.charCodeAt(i)
-        //   }
-        //   return buffer
-        // }
       }
+
+      const compareFaces = async(source, target) => {
+        const rekognition = new AWS.Rekognition()
+        const sourceImage = this.base64ToBinary(source)
+        const targetImage = this.base64ToBinary(target)
+        const params = {
+          // SimilarityThureshold: 70,
+          SourceImage: { Bytes: sourceImage },
+          TargetImage: { Bytes: targetImage }
+        }
+        const fetchAPI = () => new Promise((resolve, reject) => {
+          rekognition.compareFaces(params, (err, data) => {
+            if(err) {
+              console.log(err, err.stack)
+              reject(err) 
+            } else {
+              console.log(data)
+              resolve(data)
+            }
+          })
+        })
+        return fetchAPI().then((res => {
+          return res
+        }))
+      }
+      
+
       function tick() {
         count ++
         offscreenCtx.drawImage(video, 0, 0)        
@@ -138,14 +160,34 @@ export default {
         offscreenCtx.putImageData(image, 0, 0)
         ctx.drawImage(offscreenCanvas, 0, 0)
 
-        if(count % 30 === 0 && count <= 300){
-          faceSearch().then(result => {
-            faceBoundingBox = {
-              Height: result.SearchedFaceBoundingBox.Height,
-              Left: result.SearchedFaceBoundingBox.Left,
-              Top: result.SearchedFaceBoundingBox.Top,
-              Width: result.SearchedFaceBoundingBox.Height
-            } 
+        // if(count % 30 === 0 && count <= 3000){
+        //   faceSearch().then(result => {
+        //     if(result.FaceMatches.length) {
+        //       faceBoundingBox = {
+        //         Height: result.FaceMatches[0].Face.BoundingBox.Height,
+        //         Left: result.FaceMatches[0].Face.BoundingBox.Left,
+        //         Top: result.FaceMatches[0].Face.BoundingBox.Top,
+        //         Width: result.FaceMatches[0].Face.BoundingBox.Height
+        //       }
+        //     }
+        //   })
+        // }
+
+        
+
+
+        if(count % 30 === 0 && count <= 3000){
+          const targetImage = offscreenCanvas.toDataURL('image/jpeg')
+          compareFaces(sourceImage, targetImage).then(result => {
+            console.log(result)
+            if(result.FaceMatches.length) {
+              faceBoundingBox = {
+                Height: result.FaceMatches[0].Face.BoundingBox.Height,
+                Left: result.FaceMatches[0].Face.BoundingBox.Left,
+                Top: result.FaceMatches[0].Face.BoundingBox.Top,
+                Width: result.FaceMatches[0].Face.BoundingBox.Height
+              }
+            }
           })
         }
 
@@ -161,10 +203,40 @@ export default {
           ctx.stroke()
         }
                 
-        console.log(count)
+        // console.log(count)
         window.requestAnimationFrame(tick)
       }
     },
+
+    // compareFaces: async function(source, target) {
+    //   const rekognition = new AWS.Rekognition()
+    //   const sourceImage = this.base64ToBinary(source)
+    //   const targetImage = this.base64ToBinary(target)
+    //   const params = {
+    //     SimilarityThureshold: 70,
+    //     SourceImage: { Bytes: sourceImage },
+    //     TargetImage: { Bytes: targetImage }
+    //   }
+    // },
+
+    // searchFacesByImage: async function(image) {
+    //   const rekognition = new AWS.Rekognition()
+    //   const buf = this.base64ToBinary(image)
+    //   console.log(buf)
+    //   const params = {
+    //     CollectionId: this.collectionId,
+    //     Image: {
+    //       Bytes: buf
+    //     }
+    //   }
+    //   rekognition.searchFacesByImage(params, function(err, data) {
+    //     if(err) {
+    //       console.log(err, err.stack)
+    //     } else {
+    //       console.log(data)
+    //     }
+    //   })
+    // },
   
     frameShooting: function() {
       var video = document.getElementById('video')
@@ -175,10 +247,6 @@ export default {
       canvas.setAttribute('width', width)
       canvas.setAttribute('height', height)
       ctx.drawImage(video, 0, 0, width, height)
-      // canvas.toBlob(function(blob) {
-      //   var img = document.getElementById('image')
-      //   img.src = window.URL.createObjectURL(blob)
-      // }, 'image/jpeg', 0.95)
     },
     apiTest: function() {
       axios
@@ -204,15 +272,7 @@ export default {
         if(err) console.log(err, err.stack)
         else console.log(data)
       })
-      // canvas.toBlob(function(blob) {
-      //   s3.putObject({
-      //   Key: fileName,
-      //   Body: blob
-      //   }, function(err, data){
-      //     if(err) console.log(err, err.stack)
-      //     else console.log(data)
-      //   })
-      // }, 'image/jpeg', 0.95)
+
       function dataURItoBlob(dataURI) {
         var binary = atob(dataURI.split(',')[1]);
         var array = [];
@@ -238,19 +298,10 @@ export default {
         if(err) console.log(err, err.stack)
         else console.log(data) 
       })
-      // function base64ToBinary(canvas) {
-      //   var base64 = canvas.toDataURL('image/jpeg')
-      //   var bin = atob(base64.replace(/^.*,/, ''))
-      //   var buffer = new Uint8Array(bin.length)
-      //   for (var i = 0; i < bin.length; i++) {
-      //     buffer[i] = bin.charCodeAt(i)
-      //   }
-      //   return buffer
-      // }
+
     },
 
     base64ToBinary: function(base64) {
-      console.log(base64)
       var bin = atob(base64.replace(/^.*,/, ''))
       var buffer = new Uint8Array(bin.length)
       for (var i = 0; i < bin.length; i++) {
