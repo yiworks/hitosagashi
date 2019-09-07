@@ -1,6 +1,7 @@
 <template>
   <div class="camera">
     <h1>This is a camera page</h1>
+    <p>Collection ID: {{ collectionId }}</p>
     <button v-on:click="startVideoStream">startVideoStream</button>
     <button v-on:click="startVideoStream2">startVideoStream2</button>
     <button v-on:click="frameShooting">frameShooting</button>
@@ -26,7 +27,16 @@ AWS.config.update({
 })
 
 export default {
+  data() {
+    return {
+      collectionId: 0,
+    }
+  },
+
   methods: {
+    idCountUp: function() {
+      this.id ++
+    },
     startVideoStream: function() {
       var video = document.getElementById('video')
       var constrains = { video: true, audio: false }
@@ -117,7 +127,7 @@ export default {
         offscreenCtx.putImageData(image, 0, 0)
         ctx.drawImage(offscreenCanvas, 0, 0)
 
-        if(count % 100 === 0 && count <= 3000){
+        if(count % 30 === 0 && count <= 300){
           faceSearch().then(result => {
             faceBoundingBox = {
               Height: result.SearchedFaceBoundingBox.Height,
@@ -126,18 +136,6 @@ export default {
               Width: result.SearchedFaceBoundingBox.Height
             } 
           })
-          // faceBoundingBox = {
-          //   Height: Math.random(),
-          //   Left: Math.random(),
-          //   Top: Math.random(),
-          //   Width: Math.random()
-          // } 
-          // faceBoundingBox = {
-          //   Height: search.SearchedFaceBoundingBox.Height,
-          //   Left: search.SearchedFaceBoundingBox.Left,
-          //   Top: search.SearchedFaceBoundingBox.Top,
-          //   Width: search.SearchedFaceBoundingBox.Height
-          // } 
         }
 
         if(Object.keys(faceBoundingBox).length){
@@ -244,15 +242,27 @@ export default {
       var rekognition = new AWS.Rekognition() 
     },
     createCollection: function() {
+      const DateTimeStr = () => {
+        let date = new Date()
+        let year = date.getFullYear().toString()
+        let month = ('0' + (date.getMonth())).slice(-2)
+        let day = ('0' + (date.getDay())).slice(-2)
+        let hours = ('0' + (date.getHours())).slice(-2)
+        let minutes = ('0' + (date.getMinutes())).slice(-2)
+        let seconds = ('0' + (date.getSeconds())).slice(-2)
+
+        return year + month + day + hours + minutes + seconds
+      }
+      this.collectionId = DateTimeStr()
       var params = {
-        CollectionId: "myphotos"
+        CollectionId: this.collectionId
       }
       var rekognition = new AWS.Rekognition()
 
-      rekognition.createCollection(params, function(err, data) {
-        if(err) console.log(err, err.stack)
-        else console.log(data)
-      })
+      // rekognition.createCollection(params, function(err, data) {
+      //   if(err) console.log(err, err.stack)
+      //   else console.log(data)
+      // })
     },
     indexFaces: function() {
       var canvas = document.getElementById('canvas')
