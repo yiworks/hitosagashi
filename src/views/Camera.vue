@@ -1,22 +1,51 @@
 <template>
-  <div class="camera">
-    <h1>hitosagashi</h1>
-    <input type="file" @change="onFileChange">
+  <v-container>
+    <v-row>
+      <v-col>
+        <v-card class="pb-5">
+          <v-card-title>Step1. 探したい人物一人だけが写った写真を選択します</v-card-title>
+          <v-card-actions>
+            <v-file-input label="写真を選択" filled  prepend-icon="mdi-camera" @change="onFileChange"></v-file-input>
+          </v-card-actions>
+          <v-img
+            :src="uploadedImage"
+            v-show="uploadedImage"
+            max-height="300"
+            contain
+          ></v-img>
+        </v-card>
+      </v-col>
+    </v-row>
+   <v-row>
+     <v-col>
+      <v-card>
+        <v-card-title>Step2. カメラが起動したら「探す」ボタンを押します</v-card-title>
+        <v-card-actions>
+          <v-btn v-on:click="fetchBoundingBox">探す</v-btn>
+        </v-card-actions>
+        <v-card-text>{{ message }}</v-card-text>
+        <canvas id="canvas"></canvas>
+        
+      </v-card>
+     </v-col>
+   </v-row>
+   <v-row>
+     <v-col>
+       <v-card>
+         <v-card-title>To Be Continued...</v-card-title>
+         <v-card-text>検知した画像をリストにします</v-card-text>
+       </v-card>
+     </v-col>
+   </v-row>
+  </v-container>
+  <!-- <div class="camera">
     <div class="preview-image">
-      <img
-        v-show="uploadedImage"
-        class=""
-        :src="uploadedImage"
-        alt=""
-       />
     </div>
     <button v-on:click="startManualMode">startManualMode</button>
     <button v-on:click="startAutoMode">startAutoMode</button>
-    <button v-on:click="fetchBoundingBox">fetchBoundingBox</button>
     <button v-on:click="stop(animationFrameCallbackId)">stop</button>
-    <p>{{ message }}</p>
-    <canvas id="canvas"></canvas>
-  </div>
+    
+  </div> -->
 </template>
 <script>
 import axios from 'axios'
@@ -37,6 +66,11 @@ export default {
       animationFrameCallbackId: '',
       faceBoundingBox: {},
       message: '',
+    }
+  },
+  watch: {
+    uploadedImage: function() {
+      this.startManualMode()
     }
   },
 
@@ -115,7 +149,7 @@ export default {
     },
 
     fetchBoundingBox: async function() {
-      if(!videoStream && !this.uploadedImage.length) return window.alert('error')
+      // if(!videoStream && !this.uploadedImage.length) return window.alert('error')
       const videoStream = document.getElementById("canvas")
       const sourceImage = this.uploadedImage
       const targetImage = videoStream.toDataURL('image/jpeg')
@@ -389,9 +423,9 @@ export default {
     },
 
     onFileChange: function(e) {
-      const files = e.target.files || e.dataTransfer.files
-      this.createImage(files[0])
-      this.img_name = files[0].name
+      const file = e
+      this.createImage(file)
+      this.img_name = file.name
     },
 
     createImage: function(file) {
