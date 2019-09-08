@@ -190,7 +190,10 @@ export default {
             Width: result.FaceMatches[0].Face.BoundingBox.Height
           }
           this.message ='見つかりました！'
-        } else this.faceBoundingBox = {}
+        } else {
+          this.faceBoundingBox = {}
+          this.message = '見つかりませんでした。'
+        }
       }).catch(e => {
         // console.log(e)
         this.faceBoundingBox = {}
