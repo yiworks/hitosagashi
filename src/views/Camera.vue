@@ -1,6 +1,6 @@
 <template>
   <div class="camera">
-    <h1>This is a hitosagashi</h1>
+    <h1>hitosagashi</h1>
     <input type="file" @change="onFileChange">
     <div class="preview-image">
       <img
@@ -10,16 +10,18 @@
         alt=""
        />
     </div>
-    <p>Collection ID: {{ collectionId }}</p>
-    <button v-on:click="consoleLog">consoleLog</button>
-    <button v-on:click="startVideoStream">startVideoStream</button>
+    <!-- <p>Collection ID: {{ collectionId }}</p> -->
+    <!-- <button v-on:click="consoleLog">consoleLog</button> -->
+    <!-- <button v-on:click="startVideoStream">startVideoStream</button> -->
     <button v-on:click="startVideoStream2">startVideoStream2</button>
-    <button v-on:click="frameShooting">frameShooting</button>
-    <button v-on:click="apiTest">apiTest</button>
-    <button v-on:click="createCollection">createCollection</button>
-    <button v-on:click="indexFaces">indexFaces</button>
-    <button v-on:click="sendToS3">sendToS3</button>
-    <button v-on:click="sendToRekognition">sendToRekognition</button>
+    <button v-on:click="stop(animationFrameCallbackId)">stop</button>
+    <!-- <button v-on:click="handleActive">on/off</button> -->
+    <!-- <button v-on:click="frameShooting">frameShooting</button> -->
+    <!-- <button v-on:click="apiTest">apiTest</button> -->
+    <!-- <button v-on:click="createCollection">createCollection</button> -->
+    <!-- <button v-on:click="indexFaces">indexFaces</button> -->
+    <!-- <button v-on:click="sendToS3">sendToS3</button> -->
+    <!-- <button v-on:click="sendToRekognition">sendToRekognition</button> -->
     <!-- <button v-on:click="searchFacesByImage(uploadedImage)">searchFacesByImage</button> -->
     <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
@@ -30,6 +32,7 @@
 <script>
 import axios from 'axios'
 import AWS from 'aws-sdk'
+import { callbackify } from 'util';
 
 AWS.config.update({
   accessKeyId: process.env.VUE_APP_AWS_ACCESS_KEY_ID,
@@ -41,7 +44,9 @@ export default {
   data() {
     return {
       collectionId: 0,
-      uploadedImage: ''
+      uploadedImage: '',
+      animationFrameCallbackId: '',
+      active: true
     }
   },
 
@@ -61,6 +66,7 @@ export default {
       })
     },
     startVideoStream2: async function() {
+      // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // Video
       const video = document.createElement("video")
       const constrains = { video: true, audio: false }
@@ -87,44 +93,48 @@ export default {
 
       let faceBoundingBox = {}
 
+      var me = this
+      
       video.onloadedmetadata = () => {
         video.play()
         canvas.width = offscreenCanvas.width = video.videoWidth
         canvas.height = offscreenCanvas.height = video.videoHeight
         
-
+        let animationFrameCallbackId = this.animationFrameCallbackId
+        // tick(animationFrameCallbackId)
+        // let hoge = tick.bind(this)
         tick()
       }
 
-      let faceSearch = async() => {
-        var base64 = offscreenCanvas.toDataURL('image/jpeg')
-        var rekognition = new AWS.Rekognition()
-        // var collectionId = "myphotos"
-        var buf = this.base64ToBinary(base64)
-        var params = {
-          // CollectionId: "myphotos",
-          CollectionId: this.collectionId,
-          Image: {
-            Bytes: buf
-          }
-        }
+      // let faceSearch = async() => {
+      //   var base64 = offscreenCanvas.toDataURL('image/jpeg')
+      //   var rekognition = new AWS.Rekognition()
+      //   // var collectionId = "myphotos"
+      //   var buf = this.base64ToBinary(base64)
+      //   var params = {
+      //     // CollectionId: "myphotos",
+      //     CollectionId: this.collectionId,
+      //     Image: {
+      //       Bytes: buf
+      //     }
+      //   }
         
-        const searchFacesByImage = () => new Promise((resolve, reject) => {
-          rekognition.searchFacesByImage(params, function(err, data) {
-            if(err) {
-              console.log(err, err.stack)
-              reject(err)
-            } else {
-              console.log(data)
-              resolve(data)
-            }
-          })
-        })
+      //   const searchFacesByImage = () => new Promise((resolve, reject) => {
+      //     rekognition.searchFacesByImage(params, function(err, data) {
+      //       if(err) {
+      //         console.log(err, err.stack)
+      //         reject(err)
+      //       } else {
+      //         console.log(data)
+      //         resolve(data)
+      //       }
+      //     })
+      //   })
         
-        return searchFacesByImage().then((res => {
-          return res
-        }))
-      }
+      //   return searchFacesByImage().then((res => {
+      //     return res
+      //   }))
+      // }
 
       const compareFaces = async(source, target) => {
         const rekognition = new AWS.Rekognition()
@@ -152,7 +162,7 @@ export default {
       }
       
 
-      function tick() {
+      const tick = function(animationFrameCallbackId) {
         count ++
         offscreenCtx.drawImage(video, 0, 0)        
         const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
@@ -175,8 +185,8 @@ export default {
 
         
 
-
-        if(count % 30 === 0 && count <= 3000){
+        if(false) {
+        // if(count % 30 === 0 && count <= 3000) {
           const targetImage = offscreenCanvas.toDataURL('image/jpeg')
           compareFaces(sourceImage, targetImage).then(result => {
             console.log(result)
@@ -204,8 +214,18 @@ export default {
         }
                 
         // console.log(count)
-        window.requestAnimationFrame(tick)
+        // let callbackId;
+        // if(!active) return cancelAnimationFrame(callbackId)
+        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
       }
+    },
+
+    stop: function(animationFrameCallbackId) {
+      cancelAnimationFrame(animationFrameCallbackId)
+    },
+
+    handleActive: function() {
+      this.active = this.active ? false: true
     },
 
     // compareFaces: async function(source, target) {
