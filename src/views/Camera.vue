@@ -10,23 +10,10 @@
         alt=""
        />
     </div>
-    <!-- <p>Collection ID: {{ collectionId }}</p> -->
-    <!-- <button v-on:click="consoleLog">consoleLog</button> -->
-    <!-- <button v-on:click="startVideoStream">startVideoStream</button> -->
     <button v-on:click="startVideoStream2">startVideoStream2</button>
     <button v-on:click="stop(animationFrameCallbackId)">stop</button>
-    <!-- <button v-on:click="handleActive">on/off</button> -->
-    <!-- <button v-on:click="frameShooting">frameShooting</button> -->
-    <!-- <button v-on:click="apiTest">apiTest</button> -->
-    <!-- <button v-on:click="createCollection">createCollection</button> -->
-    <!-- <button v-on:click="indexFaces">indexFaces</button> -->
-    <!-- <button v-on:click="sendToS3">sendToS3</button> -->
-    <!-- <button v-on:click="sendToRekognition">sendToRekognition</button> -->
-    <!-- <button v-on:click="searchFacesByImage(uploadedImage)">searchFacesByImage</button> -->
     <video id="video" autoplay playsinline="true"></video>
     <canvas id="canvas"></canvas>
-    <canvas id="frameshot"></canvas>
-    <img id="img">
   </div>
 </template>
 <script>
@@ -82,7 +69,6 @@ export default {
       var count = 0
 
       const sourceImage = this.uploadedImage
-      // const compareFaces = this.compareFaces
 
       var BoundingBox = {
         Height: Math.random(),
@@ -101,40 +87,8 @@ export default {
         canvas.height = offscreenCanvas.height = video.videoHeight
         
         let animationFrameCallbackId = this.animationFrameCallbackId
-        // tick(animationFrameCallbackId)
-        // let hoge = tick.bind(this)
         tick()
       }
-
-      // let faceSearch = async() => {
-      //   var base64 = offscreenCanvas.toDataURL('image/jpeg')
-      //   var rekognition = new AWS.Rekognition()
-      //   // var collectionId = "myphotos"
-      //   var buf = this.base64ToBinary(base64)
-      //   var params = {
-      //     // CollectionId: "myphotos",
-      //     CollectionId: this.collectionId,
-      //     Image: {
-      //       Bytes: buf
-      //     }
-      //   }
-        
-      //   const searchFacesByImage = () => new Promise((resolve, reject) => {
-      //     rekognition.searchFacesByImage(params, function(err, data) {
-      //       if(err) {
-      //         console.log(err, err.stack)
-      //         reject(err)
-      //       } else {
-      //         console.log(data)
-      //         resolve(data)
-      //       }
-      //     })
-      //   })
-        
-      //   return searchFacesByImage().then((res => {
-      //     return res
-      //   }))
-      // }
 
       const compareFaces = async(source, target) => {
         const rekognition = new AWS.Rekognition()
@@ -166,24 +120,8 @@ export default {
         count ++
         offscreenCtx.drawImage(video, 0, 0)        
         const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
-        // filter(image.data)
         offscreenCtx.putImageData(image, 0, 0)
         ctx.drawImage(offscreenCanvas, 0, 0)
-
-        // if(count % 30 === 0 && count <= 3000){
-        //   faceSearch().then(result => {
-        //     if(result.FaceMatches.length) {
-        //       faceBoundingBox = {
-        //         Height: result.FaceMatches[0].Face.BoundingBox.Height,
-        //         Left: result.FaceMatches[0].Face.BoundingBox.Left,
-        //         Top: result.FaceMatches[0].Face.BoundingBox.Top,
-        //         Width: result.FaceMatches[0].Face.BoundingBox.Height
-        //       }
-        //     }
-        //   })
-        // }
-
-        
 
         if(false) {
         // if(count % 30 === 0 && count <= 3000) {
@@ -213,9 +151,6 @@ export default {
           ctx.stroke()
         }
                 
-        // console.log(count)
-        // let callbackId;
-        // if(!active) return cancelAnimationFrame(callbackId)
         me.animationFrameCallbackId = window.requestAnimationFrame(tick)
       }
     },
@@ -228,36 +163,6 @@ export default {
       this.active = this.active ? false: true
     },
 
-    // compareFaces: async function(source, target) {
-    //   const rekognition = new AWS.Rekognition()
-    //   const sourceImage = this.base64ToBinary(source)
-    //   const targetImage = this.base64ToBinary(target)
-    //   const params = {
-    //     SimilarityThureshold: 70,
-    //     SourceImage: { Bytes: sourceImage },
-    //     TargetImage: { Bytes: targetImage }
-    //   }
-    // },
-
-    // searchFacesByImage: async function(image) {
-    //   const rekognition = new AWS.Rekognition()
-    //   const buf = this.base64ToBinary(image)
-    //   console.log(buf)
-    //   const params = {
-    //     CollectionId: this.collectionId,
-    //     Image: {
-    //       Bytes: buf
-    //     }
-    //   }
-    //   rekognition.searchFacesByImage(params, function(err, data) {
-    //     if(err) {
-    //       console.log(err, err.stack)
-    //     } else {
-    //       console.log(data)
-    //     }
-    //   })
-    // },
-  
     frameShooting: function() {
       var video = document.getElementById('video')
       var canvas = document.getElementById('frameshot')
