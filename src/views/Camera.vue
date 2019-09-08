@@ -10,9 +10,11 @@
         alt=""
        />
     </div>
-    <button v-on:click="startVideoStream2">startVideoStream2</button>
+    <button v-on:click="startManualMode">startManualMode</button>
+    <button v-on:click="startAutoMode">startAutoMode</button>
+    <button v-on:click="fetchBoundingBox">fetchBoundingBox</button>
     <button v-on:click="stop(animationFrameCallbackId)">stop</button>
-    <video id="video" autoplay playsinline="true"></video>
+    <p>{{ message }}</p>
     <canvas id="canvas"></canvas>
   </div>
 </template>
@@ -33,26 +35,136 @@ export default {
       collectionId: 0,
       uploadedImage: '',
       animationFrameCallbackId: '',
-      active: true
+      faceBoundingBox: {},
+      message: '',
     }
   },
 
   methods: {
-    idCountUp: function() {
-      this.id ++
-    },
-    startVideoStream: function() {
-      var video = document.getElementById('video')
+    startManualMode: async function() {
+      // if(!this.uploadedImage) return window.alert('画像を選択してください')
+      // video
+      var video = document.createElement('video')
       var constrains = { video: true, audio: false }
+      const stream = await navigator.mediaDevices.getUserMedia(constrains)
+      video.srcObject = stream
+      // 表示用Canvas
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
+      // 処理用Canvas
+      const offscreenCanvas = document.createElement("canvas")
+      const offscreenCtx = offscreenCanvas.getContext("2d")
+      const me = this
+      
+      const compareFaces = async(source, target) => {
+        const rekognition = new AWS.Rekognition()
+        const sourceImage = this.base64ToBinary(source)
+        const targetImage = this.base64ToBinary(target)
+        const params = {
+          // SimilarityThureshold: 70,
+          SourceImage: { Bytes: sourceImage },
+          TargetImage: { Bytes: targetImage }
+        }
+        const fetchAPI = () => new Promise((resolve, reject) => {
+          rekognition.compareFaces(params, (err, data) => {
+            if(err) {
+              console.log(err, err.stack)
+              reject(err) 
+            } else {
+              console.log(data)
+              resolve(data)
+            }
+          })
+        })
+        return fetchAPI().then((res => {
+          return res
+        }))
+      }
 
-      navigator.mediaDevices.getUserMedia(constrains)
-        .then((stream) => {
-          video.srcObject = stream
-        }).catch((err) => {
-        window.alert(err.name + ': ' + err.message)
+      
+     
+      const tick = function(animationFrameCallbackId) {
+        offscreenCtx.drawImage(video, 0, 0)        
+        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+        offscreenCtx.putImageData(image, 0, 0)
+        ctx.drawImage(offscreenCanvas, 0, 0)
+        
+        if(Object.keys(me.faceBoundingBox).length){
+          ctx.lineWidth = 2
+          ctx.strokeStyle = 'red'
+          ctx.beginPath()
+          ctx.rect(me.faceBoundingBox.Left * canvas.width,
+            me.faceBoundingBox.Top * canvas.height,
+            me.faceBoundingBox.Width * canvas.width,
+            me.faceBoundingBox.Height * canvas.height,
+          )
+          ctx.stroke()
+        }
+
+        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
+      }
+
+      video.onloadedmetadata = () => {
+        video.play()
+        canvas.width = offscreenCanvas.width = video.videoWidth
+        canvas.height = offscreenCanvas.height = video.videoHeight
+        
+        let animationFrameCallbackId = this.animationFrameCallbackId
+        tick()
+      }
+    },
+
+    fetchBoundingBox: async function() {
+      if(!videoStream && !this.uploadedImage.length) return window.alert('error')
+      const videoStream = document.getElementById("canvas")
+      const sourceImage = this.uploadedImage
+      const targetImage = videoStream.toDataURL('image/jpeg')
+      const compareFaces = async(source, target) => {
+        const rekognition = new AWS.Rekognition()
+        const sourceImage = this.base64ToBinary(source)
+        const targetImage = this.base64ToBinary(target)
+        const params = {
+          // SimilarityThureshold: 70,
+          SourceImage: { Bytes: sourceImage },
+          TargetImage: { Bytes: targetImage }
+        }
+        const fetchAPI = () => new Promise((resolve, reject) => {
+          rekognition.compareFaces(params, (err, data) => {
+            if(err) {
+              console.log(err, err.stack)
+              reject(err) 
+            } else {
+              console.log(data)
+              resolve(data)
+            }
+          })
+        })
+        return fetchAPI().then((res => {
+          return res
+        })).catch((e => {
+          return e
+        }))
+      }
+
+      compareFaces(sourceImage, targetImage).then(result => {
+        console.log(result)
+        if(result.FaceMatches.length) {
+          this.faceBoundingBox = {
+            Height: result.FaceMatches[0].Face.BoundingBox.Height,
+            Left: result.FaceMatches[0].Face.BoundingBox.Left,
+            Top: result.FaceMatches[0].Face.BoundingBox.Top,
+            Width: result.FaceMatches[0].Face.BoundingBox.Height
+          }
+          this.message ='見つかりました！'
+        } else this.faceBoundingBox = {}
+      }).catch(e => {
+        // console.log(e)
+        this.faceBoundingBox = {}
+        this.message = '見つかりませんでした。'
       })
     },
-    startVideoStream2: async function() {
+
+    startAutoMode: async function() {
       // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // Video
       const video = document.createElement("video")
@@ -157,10 +269,6 @@ export default {
 
     stop: function(animationFrameCallbackId) {
       cancelAnimationFrame(animationFrameCallbackId)
-    },
-
-    handleActive: function() {
-      this.active = this.active ? false: true
     },
 
     frameShooting: function() {
