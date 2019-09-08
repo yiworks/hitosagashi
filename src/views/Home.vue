@@ -10,6 +10,7 @@
             hitosagashi
           </h1>
           <p class="subheading font-weight-regular mt-10 mb-30">
+            大勢の人の中からでも見つけたい人を見つけ出せます
             カメラをかざして人を見つけてみましょう
           </p>
         </v-content>
