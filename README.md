@@ -1,4 +1,8 @@
-# hitosagashi
+# hitosagashi(仮)
+https://hitosagashi-2a5ec.firebaseapp.com/
+
+## Overview
+カメラ映像から目的の人を探し出すアプリケーションです。
 
 ## Project setup
 ```
@@ -24,6 +28,3 @@ yarn run test
 ```
 yarn run lint
 ```
-
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
