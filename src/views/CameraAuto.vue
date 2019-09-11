@@ -19,9 +19,9 @@
    <v-row>
      <v-col>
       <v-card>
-        <v-card-title>Step2. カメラが起動したら「探す」ボタンを押します Auto mode</v-card-title>
+        <v-card-title>Step2. カメラが起動したら捜索が始まります</v-card-title>
         <v-card-actions>
-          <v-btn v-on:click="startAutoMode">探索開始</v-btn>
+          <v-btn v-on:click="startAutoMode">再捜索</v-btn>
           <v-btn v-on:click="stopSearch(animationFrameCallbackId)">停止</v-btn>
         </v-card-actions>
         <v-card-text>{{ message }}</v-card-text>
@@ -39,14 +39,6 @@
      </v-col>
    </v-row>
   </v-container>
-  <!-- <div class="camera">
-    <div class="preview-image">
-    </div>
-    <button v-on:click="startManualMode">startManualMode</button>
-    <button v-on:click="startAutoMode">startAutoMode</button>
-    <button v-on:click="stop(animationFrameCallbackId)">stop</button>
-    
-  </div> -->
 </template>
 <script>
 import axios from 'axios'
@@ -71,137 +63,11 @@ export default {
   },
   watch: {
     uploadedImage: function() {
-      this.startManualMode()
+      this.startAutoMode()
     }
   },
 
   methods: {
-    startManualMode: async function() {
-      // if(!this.uploadedImage) return window.alert('画像を選択してください')
-      // video
-      var video = document.createElement('video')
-      var constrains = { video: true, audio: false }
-      const stream = await navigator.mediaDevices.getUserMedia(constrains)
-      video.srcObject = stream
-      // 表示用Canvas
-      const canvas = document.getElementById("canvas")
-      const ctx = canvas.getContext("2d")
-      // 処理用Canvas
-      const offscreenCanvas = document.createElement("canvas")
-      const offscreenCtx = offscreenCanvas.getContext("2d")
-      const me = this
-      
-      const compareFaces = async(source, target) => {
-        const rekognition = new AWS.Rekognition()
-        const sourceImage = this.base64ToBinary(source)
-        const targetImage = this.base64ToBinary(target)
-        const params = {
-          // SimilarityThureshold: 70,
-          SourceImage: { Bytes: sourceImage },
-          TargetImage: { Bytes: targetImage }
-        }
-        const fetchAPI = () => new Promise((resolve, reject) => {
-          rekognition.compareFaces(params, (err, data) => {
-            if(err) {
-              console.log(err, err.stack)
-              reject(err) 
-            } else {
-              console.log(data)
-              resolve(data)
-            }
-          })
-        })
-        return fetchAPI().then((res => {
-          return res
-        }))
-      }
-
-      
-     
-      const tick = function(animationFrameCallbackId) {
-        offscreenCtx.drawImage(video, 0, 0)        
-        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
-        offscreenCtx.putImageData(image, 0, 0)
-        ctx.drawImage(offscreenCanvas, 0, 0)
-        
-        if(Object.keys(me.faceBoundingBox).length){
-          ctx.lineWidth = 2
-          ctx.strokeStyle = 'red'
-          ctx.beginPath()
-          ctx.rect(me.faceBoundingBox.Left * canvas.width,
-            me.faceBoundingBox.Top * canvas.height,
-            me.faceBoundingBox.Width * canvas.width,
-            me.faceBoundingBox.Height * canvas.height,
-          )
-          ctx.stroke()
-        }
-
-        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
-      }
-
-      video.onloadedmetadata = () => {
-        video.play()
-        canvas.width = offscreenCanvas.width = video.videoWidth
-        canvas.height = offscreenCanvas.height = video.videoHeight
-        
-        let animationFrameCallbackId = this.animationFrameCallbackId
-        tick()
-      }
-    },
-
-    fetchBoundingBox: async function() {
-      // if(!videoStream && !this.uploadedImage.length) return window.alert('error')
-      const videoStream = document.getElementById("canvas")
-      const sourceImage = this.uploadedImage
-      const targetImage = videoStream.toDataURL('image/jpeg')
-      const compareFaces = async(source, target) => {
-        const rekognition = new AWS.Rekognition()
-        const sourceImage = this.base64ToBinary(source)
-        const targetImage = this.base64ToBinary(target)
-        const params = {
-          // SimilarityThureshold: 70,
-          SourceImage: { Bytes: sourceImage },
-          TargetImage: { Bytes: targetImage }
-        }
-        const fetchAPI = () => new Promise((resolve, reject) => {
-          rekognition.compareFaces(params, (err, data) => {
-            if(err) {
-              console.log(err, err.stack)
-              reject(err) 
-            } else {
-              console.log(data)
-              resolve(data)
-            }
-          })
-        })
-        return fetchAPI().then((res => {
-          return res
-        })).catch((e => {
-          return e
-        }))
-      }
-
-      compareFaces(sourceImage, targetImage).then(result => {
-        console.log(result)
-        if(result.FaceMatches.length) {
-          this.faceBoundingBox = {
-            Height: result.FaceMatches[0].Face.BoundingBox.Height,
-            Left: result.FaceMatches[0].Face.BoundingBox.Left,
-            Top: result.FaceMatches[0].Face.BoundingBox.Top,
-            Width: result.FaceMatches[0].Face.BoundingBox.Height
-          }
-          this.message ='見つかりました！'
-        } else {
-          this.faceBoundingBox = {}
-          this.message = '見つかりませんでした。'
-        }
-      }).catch(e => {
-        // console.log(e)
-        this.faceBoundingBox = {}
-        this.message = '見つかりませんでした。'
-      })
-    },
-
     startAutoMode: async function() {
       // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // Video
@@ -274,7 +140,7 @@ export default {
         ctx.drawImage(offscreenCanvas, 0, 0)
 
         // if(false) {
-        if(count % 30 === 0 && count <= 3000) {
+        if(count % 30 === 0 && count <= 1000) {
           const targetImage = offscreenCanvas.toDataURL('image/jpeg')
           compareFaces(sourceImage, targetImage).then(result => {
             console.log(result)
@@ -285,9 +151,21 @@ export default {
                 Top: result.FaceMatches[0].Face.BoundingBox.Top,
                 Width: result.FaceMatches[0].Face.BoundingBox.Height
               }
+              me.message ='見つかりました！'
+            } else {
+              me.faceBoundingBox = {}
+              me.message ='探しています...'
             }
+          }).catch(e => {
+            me.faceBoundingBox = {}
+            me.message = '探しています...'
           })
+        } else if (count >= 3000) {
+           me.faceBoundingBox = {}
+           me.message = '探索を終了します。'
+           me.stopSearch()
         }
+
 
         if(Object.keys(faceBoundingBox).length){
           ctx.lineWidth = 2
