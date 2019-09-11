@@ -16,6 +16,7 @@
         </v-content>
         <v-content>
           <v-btn to="/camera">はじめる</v-btn>
+          <v-btn to="/camera-auto">はじめる（自動モード）</v-btn>
         </v-content>
       </v-flex>
     </v-layout>
