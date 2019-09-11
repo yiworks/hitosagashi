@@ -72,7 +72,12 @@ export default {
       // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // Video
       const video = document.createElement("video")
-      const constrains = { video: true, audio: false }
+      const constrains = {
+                            video: {
+                              facingMode: "environment"
+                            },
+                            audio: false
+                         }
       const stream = await navigator.mediaDevices.getUserMedia(constrains)
       video.srcObject = stream
       // 表示用Canvas
