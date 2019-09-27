@@ -101,7 +101,7 @@ export default {
       let faceBoundingBox = {}
 
       var me = this
-      
+      video.setAttribute("playsinline", true)
       video.onloadedmetadata = () => {
         video.play()
         canvas.width = offscreenCanvas.width = video.videoWidth
@@ -176,6 +176,7 @@ export default {
           ctx.lineWidth = 2
           ctx.strokeStyle = 'red'
           ctx.beginPath()
+          console.log(faceBoundingBox)
           ctx.rect(faceBoundingBox.Left * canvas.width,
             faceBoundingBox.Top * canvas.height,
             faceBoundingBox.Width * canvas.width,

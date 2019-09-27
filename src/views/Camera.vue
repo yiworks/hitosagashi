@@ -68,6 +68,9 @@ export default {
       message: '',
     }
   },
+
+  mounted() {
+  },
   watch: {
     uploadedImage: function() {
       this.startManualMode()
@@ -75,31 +78,77 @@ export default {
   },
 
   methods: {
-    startManualMode: async function() {
-      // if(!this.uploadedImage) return window.alert('画像を選択してください')
-      // video
-      var video = document.createElement('video')
-      var constrains = { video: true, audio: false }
-      const stream = await navigator.mediaDevices.getUserMedia(constrains)
-      video.srcObject = stream
-      // 表示用Canvas
-      const canvas = document.getElementById("canvas")
-      const ctx = canvas.getContext("2d")
+    startManualMode: function() {
+      let me = this
+      const video = document.createElement("video")
+      video.setAttribute("playsinline", true)
+
+      const constrains = {
+                                  video: {
+                                    facingMode: "environment"
+                                  },
+                                  audio: false
+                              }
       // 処理用Canvas
       const offscreenCanvas = document.createElement("canvas")
       const offscreenCtx = offscreenCanvas.getContext("2d")
-      const me = this
-      
-      const compareFaces = async(source, target) => {
+      // 表示用Canvas
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
+
+      let animationFrameCallbackId = 0
+      const drawCanvasLoop = ((animationFrameCallbackId) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.beginPath()
+        ctx.drawImage(video, 0, 0)
+        drawRect()
+        // offscreenCtx.drawImage(video, 0, 0)        
+        // const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+        // offscreenCtx.putImageData(image, 0, 0)
+        // ctx.drawImage(offscreenCanvas, 0, 0)
+        
+        // if(Object.keys(me.faceBoundingBox).length){
+        //   ctx.lineWidth = 2
+        //   ctx.strokeStyle = 'red'
+        //   ctx.beginPath()
+        //   ctx.rect(me.faceBoundingBox.Left * canvas.width,
+        //     me.faceBoundingBox.Top * canvas.height,
+        //     me.faceBoundingBox.Width * canvas.width,
+        //     me.faceBoundingBox.Height * canvas.height,
+        //   )
+        //   ctx.stroke()
+        // }
+        animationFrameCallbackId = window.requestAnimationFrame(drawCanvasLoop)
+      })
+      const drawRect = (() => {
+        if(boundingBox.length === 0) return
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'red'
+        ctx.beginPath()
+        ctx.rect(
+          boundingBox.left,
+          boundingBox.top,
+          boundingBox.width,
+          boundingBox.height
+        )
+        // ctx.rect(
+        //   sampleRect.left,
+        //   sampleRect.top,
+        //   sampleRect.width,
+        //   sampleRect.height
+        // )
+        ctx.stroke()
+      })
+
+      const compareFaces = async() => {
         const rekognition = new AWS.Rekognition()
-        const sourceImage = this.base64ToBinary(source)
-        const targetImage = this.base64ToBinary(target)
+        const sourceImage = base64ToBinary(this.uploadedImage)
+        const targetImage = base64ToBinary(canvas.toDataURL('image/jpeg'))
         const params = {
-          // SimilarityThureshold: 70,
           SourceImage: { Bytes: sourceImage },
           TargetImage: { Bytes: targetImage }
         }
-        const fetchAPI = () => new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
           rekognition.compareFaces(params, (err, data) => {
             if(err) {
               console.log(err, err.stack)
@@ -110,42 +159,130 @@ export default {
             }
           })
         })
-        return fetchAPI().then((res => {
-          return res
-        }))
       }
+
+      const base64ToBinary = (base64) => {
+       let bin = atob(base64.replace(/^.*,/, ''))
+       let buffer = new Uint8Array(bin.length)
+       for (var i = 0; i < bin.length; i++) {
+         buffer[i] = bin.charCodeAt(i)
+       }
+       return buffer 
+      }
+
+      let sampleRect = {}
+
+      let boundingBox = {}
+
+      const fetchBoundingBox = () => {
+        if(intervalCount > 20) return clearInterval(intervalId)
+        compareFaces().then((res => {
+          if(res.FaceMatches.length) {
+              boundingBox = {
+                Height: res.FaceMatches[0].Face.BoundingBox.Height * canvas.height,
+                Left: res.FaceMatches[0].Face.BoundingBox.Left * canvas.width,
+                Top: res.FaceMatches[0].Face.BoundingBox.Top * canvas.height,
+                Width: res.FaceMatches[0].Face.BoundingBox.Height * canvas.width
+              }
+              me.message ='見つかりました！'
+          } else {
+            me.boundingBox = {}
+            me.message ='探しています...'
+          }
+        }))
+        intervalCount++
+      }
+
+      let intervalCount = 0
+      let intervalId = window.setInterval(fetchBoundingBox, 3000)
+      window.setInterval(function() {
+        sampleRect = randomRect()
+        console.log({sampleRect, boundingBox})
+      }, 1000)
+
+      const randomRect = (() => {
+        const random = ((min, max) => {
+          return Math.floor( Math.random() * (max + 1 - min) ) + min
+        })
+        return {
+          left: random(1, 100),
+          top: random(1, 100),
+          width: random(1, 100),
+          height: random(1, 100),
+        }
+      })
+
+      navigator.mediaDevices.getUserMedia(constrains).then((stream) => {
+        video.srcObject = stream
+        video.onloadedmetadata = (() => {
+          video.play()
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          drawCanvasLoop()
+        })
+      })
+  
+ 
+      // const me = this
+
+      
+      
+      // const compareFaces = async(source, target) => {
+      //   const rekognition = new AWS.Rekognition()
+      //   const sourceImage = this.base64ToBinary(source)
+      //   const targetImage = this.base64ToBinary(target)
+      //   const params = {
+      //     // SimilarityThureshold: 70,
+      //     SourceImage: { Bytes: sourceImage },
+      //     TargetImage: { Bytes: targetImage }
+      //   }
+      //   const fetchAPI = () => new Promise((resolve, reject) => {
+      //     rekognition.compareFaces(params, (err, data) => {
+      //       if(err) {
+      //         console.log(err, err.stack)
+      //         reject(err) 
+      //       } else {
+      //         console.log(data)
+      //         resolve(data)
+      //       }
+      //     })
+      //   })
+      //   return fetchAPI().then((res => {
+      //     return res
+      //   }))
+      // }
 
       
      
-      const tick = function(animationFrameCallbackId) {
-        offscreenCtx.drawImage(video, 0, 0)        
-        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
-        offscreenCtx.putImageData(image, 0, 0)
-        ctx.drawImage(offscreenCanvas, 0, 0)
+      // const tick = function(animationFrameCallbackId) {
+      //   offscreenCtx.drawImage(video, 0, 0)        
+      //   const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+      //   offscreenCtx.putImageData(image, 0, 0)
+      //   ctx.drawImage(offscreenCanvas, 0, 0)
         
-        if(Object.keys(me.faceBoundingBox).length){
-          ctx.lineWidth = 2
-          ctx.strokeStyle = 'red'
-          ctx.beginPath()
-          ctx.rect(me.faceBoundingBox.Left * canvas.width,
-            me.faceBoundingBox.Top * canvas.height,
-            me.faceBoundingBox.Width * canvas.width,
-            me.faceBoundingBox.Height * canvas.height,
-          )
-          ctx.stroke()
-        }
+      //   if(Object.keys(me.faceBoundingBox).length){
+      //     ctx.lineWidth = 2
+      //     ctx.strokeStyle = 'red'
+      //     ctx.beginPath()
+      //     ctx.rect(me.faceBoundingBox.Left * canvas.width,
+      //       me.faceBoundingBox.Top * canvas.height,
+      //       me.faceBoundingBox.Width * canvas.width,
+      //       me.faceBoundingBox.Height * canvas.height,
+      //     )
+      //     ctx.stroke()
+      //   }
 
-        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
-      }
+      //   me.animationFrameCallbackId = window.requestAnimationFrame(tick)
+      // }
 
-      video.onloadedmetadata = () => {
-        video.play()
-        canvas.width = offscreenCanvas.width = video.videoWidth
-        canvas.height = offscreenCanvas.height = video.videoHeight
+      // video.onloadedmetadata = () => {
+      //   video.play()
+      //   canvas.width = offscreenCanvas.width = video.videoWidth
+      //   canvas.height = offscreenCanvas.height = video.videoHeight
         
-        let animationFrameCallbackId = this.animationFrameCallbackId
-        tick()
-      }
+      //   let animationFrameCallbackId = this.animationFrameCallbackId
+      //   tick()
+      // }
     },
 
     fetchBoundingBox: async function() {
@@ -162,22 +299,22 @@ export default {
           SourceImage: { Bytes: sourceImage },
           TargetImage: { Bytes: targetImage }
         }
-        const fetchAPI = () => new Promise((resolve, reject) => {
-          rekognition.compareFaces(params, (err, data) => {
-            if(err) {
-              console.log(err, err.stack)
-              reject(err) 
-            } else {
-              console.log(data)
-              resolve(data)
-            }
-          })
-        })
-        return fetchAPI().then((res => {
-          return res
-        })).catch((e => {
-          return e
-        }))
+        // const fetchAPI = () => new Promise((resolve, reject) => {
+        //   rekognition.compareFaces(params, (err, data) => {
+        //     if(err) {
+        //       console.log(err, err.stack)
+        //       reject(err) 
+        //     } else {
+        //       console.log(data)
+        //       resolve(data)
+        //     }
+        //   })
+        // })
+        // return fetchAPI().then((res => {
+        //   return res
+        // })).catch((e => {
+        //   return e
+        // }))
       }
 
       compareFaces(sourceImage, targetImage).then(result => {
@@ -201,108 +338,113 @@ export default {
       })
     },
 
-    startAutoMode: async function() {
-      // if(!this.uploadedImage) return window.alert('画像を選択してください')
-      // Video
-      const video = document.createElement("video")
-      const constrains = { video: true, audio: false }
-      const stream = await navigator.mediaDevices.getUserMedia(constrains)
-      video.srcObject = stream
-      // 表示用Canvas
-      const canvas = document.getElementById("canvas")
-      const ctx = canvas.getContext("2d")
-      // 処理用Canvas
-      const offscreenCanvas = document.createElement("canvas")
-      const offscreenCtx = offscreenCanvas.getContext("2d")
+    // startAutoMode: async function() {
+    //   // if(!this.uploadedImage) return window.alert('画像を選択してください')
+    //   // Video
+    //   const video = document.createElement("video")
+    //   const constrains = {
+    //                         video: {
+    //                           facingMode: "environment"
+    //                         },
+    //                         audio: false
+    //                      }
+    //   const stream = await navigator.mediaDevices.getUserMedia(constrains)
+    //   video.srcObject = stream
+    //   // 表示用Canvas
+    //   const canvas = document.getElementById("canvas")
+    //   const ctx = canvas.getContext("2d")
+    //   // 処理用Canvas
+    //   const offscreenCanvas = document.createElement("canvas")
+    //   const offscreenCtx = offscreenCanvas.getContext("2d")
 
-      var count = 0
+    //   var count = 0
 
-      const sourceImage = this.uploadedImage
+    //   const sourceImage = this.uploadedImage
 
-      var BoundingBox = {
-        Height: Math.random(),
-        Left: Math.random(),
-        Top: Math.random(),
-        Width: Math.random()
-      }
+    //   var BoundingBox = {
+    //     Height: Math.random(),
+    //     Left: Math.random(),
+    //     Top: Math.random(),
+    //     Width: Math.random()
+    //   }
 
-      let faceBoundingBox = {}
+    //   let faceBoundingBox = {}
 
-      var me = this
+    //   var me = this
       
-      video.onloadedmetadata = () => {
-        video.play()
-        canvas.width = offscreenCanvas.width = video.videoWidth
-        canvas.height = offscreenCanvas.height = video.videoHeight
+    //   video.onloadedmetadata = () => {
+    //     video.play()
+    //     canvas.width = offscreenCanvas.width = video.videoWidth
+    //     canvas.height = offscreenCanvas.height = video.videoHeight
         
-        let animationFrameCallbackId = this.animationFrameCallbackId
-        tick()
-      }
+    //     let animationFrameCallbackId = this.animationFrameCallbackId
+    //     tick()
+    //   }
 
-      const compareFaces = async(source, target) => {
-        const rekognition = new AWS.Rekognition()
-        const sourceImage = this.base64ToBinary(source)
-        const targetImage = this.base64ToBinary(target)
-        const params = {
-          // SimilarityThureshold: 70,
-          SourceImage: { Bytes: sourceImage },
-          TargetImage: { Bytes: targetImage }
-        }
-        const fetchAPI = () => new Promise((resolve, reject) => {
-          rekognition.compareFaces(params, (err, data) => {
-            if(err) {
-              console.log(err, err.stack)
-              reject(err) 
-            } else {
-              console.log(data)
-              resolve(data)
-            }
-          })
-        })
-        return fetchAPI().then((res => {
-          return res
-        }))
-      }
+    //   const compareFaces = async(source, target) => {
+    //     const rekognition = new AWS.Rekognition()
+    //     const sourceImage = this.base64ToBinary(source)
+    //     const targetImage = this.base64ToBinary(target)
+    //     const params = {
+    //       // SimilarityThureshold: 70,
+    //       SourceImage: { Bytes: sourceImage },
+    //       TargetImage: { Bytes: targetImage }
+    //     }
+    //     const fetchAPI = () => new Promise((resolve, reject) => {
+    //       rekognition.compareFaces(params, (err, data) => {
+    //         if(err) {
+    //           console.log(err, err.stack)
+    //           reject(err) 
+    //         } else {
+    //           console.log(data)
+    //           resolve(data)
+    //         }
+    //       })
+    //     })
+    //     return fetchAPI().then((res => {
+    //       return res
+    //     }))
+    //   }
       
 
-      const tick = function(animationFrameCallbackId) {
-        count ++
-        offscreenCtx.drawImage(video, 0, 0)        
-        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
-        offscreenCtx.putImageData(image, 0, 0)
-        ctx.drawImage(offscreenCanvas, 0, 0)
+    //   const tick = function(animationFrameCallbackId) {
+    //     count ++
+    //     offscreenCtx.drawImage(video, 0, 0)        
+    //     const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+    //     offscreenCtx.putImageData(image, 0, 0)
+    //     ctx.drawImage(offscreenCanvas, 0, 0)
 
-        if(false) {
-        // if(count % 30 === 0 && count <= 3000) {
-          const targetImage = offscreenCanvas.toDataURL('image/jpeg')
-          compareFaces(sourceImage, targetImage).then(result => {
-            console.log(result)
-            if(result.FaceMatches.length) {
-              faceBoundingBox = {
-                Height: result.FaceMatches[0].Face.BoundingBox.Height,
-                Left: result.FaceMatches[0].Face.BoundingBox.Left,
-                Top: result.FaceMatches[0].Face.BoundingBox.Top,
-                Width: result.FaceMatches[0].Face.BoundingBox.Height
-              }
-            }
-          })
-        }
+    //     if(false) {
+    //     // if(count % 30 === 0 && count <= 3000) {
+    //       const targetImage = offscreenCanvas.toDataURL('image/jpeg')
+    //       compareFaces(sourceImage, targetImage).then(result => {
+    //         console.log(result)
+    //         if(result.FaceMatches.length) {
+    //           faceBoundingBox = {
+    //             Height: result.FaceMatches[0].Face.BoundingBox.Height,
+    //             Left: result.FaceMatches[0].Face.BoundingBox.Left,
+    //             Top: result.FaceMatches[0].Face.BoundingBox.Top,
+    //             Width: result.FaceMatches[0].Face.BoundingBox.Height
+    //           }
+    //         }
+    //       })
+    //     }
 
-        if(Object.keys(faceBoundingBox).length){
-          ctx.lineWidth = 2
-          ctx.strokeStyle = 'red'
-          ctx.beginPath()
-          ctx.rect(faceBoundingBox.Left * canvas.width,
-            faceBoundingBox.Top * canvas.height,
-            faceBoundingBox.Width * canvas.width,
-            faceBoundingBox.Height * canvas.height,
-          )
-          ctx.stroke()
-        }
+    //     if(Object.keys(faceBoundingBox).length){
+    //       ctx.lineWidth = 2
+    //       ctx.strokeStyle = 'red'
+    //       ctx.beginPath()
+    //       ctx.rect(faceBoundingBox.Left * canvas.width,
+    //         faceBoundingBox.Top * canvas.height,
+    //         faceBoundingBox.Width * canvas.width,
+    //         faceBoundingBox.Height * canvas.height,
+    //       )
+    //       ctx.stroke()
+    //     }
                 
-        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
-      }
-    },
+    //     me.animationFrameCallbackId = window.requestAnimationFrame(tick)
+    //   }
+    // },
 
     stop: function(animationFrameCallbackId) {
       cancelAnimationFrame(animationFrameCallbackId)
@@ -371,14 +513,14 @@ export default {
 
     },
 
-    base64ToBinary: function(base64) {
-      var bin = atob(base64.replace(/^.*,/, ''))
-      var buffer = new Uint8Array(bin.length)
-      for (var i = 0; i < bin.length; i++) {
-        buffer[i] = bin.charCodeAt(i)
-      }
-      return buffer
-    },
+    // base64ToBinary: function(base64) {
+    //   var bin = atob(base64.replace(/^.*,/, ''))
+    //   var buffer = new Uint8Array(bin.length)
+    //   for (var i = 0; i < bin.length; i++) {
+    //     buffer[i] = bin.charCodeAt(i)
+    //   }
+    //   return buffer
+    // },
 
     rekognition: function() {
       //WIP
