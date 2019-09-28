@@ -68,59 +68,54 @@ export default {
   },
 
   methods: {
-    startAutoMode: async function() {
-      // if(!this.uploadedImage) return window.alert('画像を選択してください')
-      // Video
+    startAutoMode: function() {
+      let me = this
       const video = document.createElement("video")
+      video.setAttribute("playsinline", true)
+
       const constrains = {
-                            video: {
-                              facingMode: "environment"
-                            },
-                            audio: false
-                         }
-      const stream = await navigator.mediaDevices.getUserMedia(constrains)
-      video.srcObject = stream
-      // 表示用Canvas
-      const canvas = document.getElementById("canvas")
-      const ctx = canvas.getContext("2d")
+                                  video: {
+                                    facingMode: "environment"
+                                  },
+                                  audio: false
+                              }
       // 処理用Canvas
       const offscreenCanvas = document.createElement("canvas")
       const offscreenCtx = offscreenCanvas.getContext("2d")
+      // 表示用Canvas
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
 
-      var count = 0
+      let animationFrameCallbackId = 0
+      const drawCanvasLoop = ((animationFrameCallbackId) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.beginPath()
+        ctx.drawImage(video, 0, 0)
+        drawRect()
+        animationFrameCallbackId = window.requestAnimationFrame(drawCanvasLoop)
+      })
+      const drawRect = (() => {
+        if(boundingBox.length === 0) return
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'red'
+        ctx.rect(
+          boundingBox.left,
+          boundingBox.top,
+          boundingBox.width,
+          boundingBox.height
+        )
+        ctx.stroke()
+      })
 
-      const sourceImage = this.uploadedImage
-
-      var BoundingBox = {
-        Height: Math.random(),
-        Left: Math.random(),
-        Top: Math.random(),
-        Width: Math.random()
-      }
-
-      let faceBoundingBox = {}
-
-      var me = this
-      video.setAttribute("playsinline", true)
-      video.onloadedmetadata = () => {
-        video.play()
-        canvas.width = offscreenCanvas.width = video.videoWidth
-        canvas.height = offscreenCanvas.height = video.videoHeight
-        
-        let animationFrameCallbackId = this.animationFrameCallbackId
-        tick()
-      }
-
-      const compareFaces = async(source, target) => {
+      const compareFaces = async() => {
         const rekognition = new AWS.Rekognition()
-        const sourceImage = this.base64ToBinary(source)
-        const targetImage = this.base64ToBinary(target)
+        const sourceImage = base64ToBinary(this.uploadedImage)
+        const targetImage = base64ToBinary(canvas.toDataURL('image/jpeg'))
         const params = {
-          // SimilarityThureshold: 70,
           SourceImage: { Bytes: sourceImage },
           TargetImage: { Bytes: targetImage }
         }
-        const fetchAPI = () => new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) => {
           rekognition.compareFaces(params, (err, data) => {
             if(err) {
               console.log(err, err.stack)
@@ -131,63 +126,193 @@ export default {
             }
           })
         })
-        return fetchAPI().then((res => {
-          return res
-        }))
       }
-      
 
-      const tick = function(animationFrameCallbackId) {
-        count ++
-        offscreenCtx.drawImage(video, 0, 0)        
-        const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
-        offscreenCtx.putImageData(image, 0, 0)
-        ctx.drawImage(offscreenCanvas, 0, 0)
+      const base64ToBinary = (base64) => {
+       let bin = atob(base64.replace(/^.*,/, ''))
+       let buffer = new Uint8Array(bin.length)
+       for (var i = 0; i < bin.length; i++) {
+         buffer[i] = bin.charCodeAt(i)
+       }
+       return buffer 
+      }
 
-        // if(false) {
-        if(count % 30 === 0 && count <= 1000) {
-          const targetImage = offscreenCanvas.toDataURL('image/jpeg')
-          compareFaces(sourceImage, targetImage).then(result => {
-            console.log(result)
-            if(result.FaceMatches.length) {
-              faceBoundingBox = {
-                Height: result.FaceMatches[0].Face.BoundingBox.Height,
-                Left: result.FaceMatches[0].Face.BoundingBox.Left,
-                Top: result.FaceMatches[0].Face.BoundingBox.Top,
-                Width: result.FaceMatches[0].Face.BoundingBox.Height
+      let sampleRect = {}
+
+      let boundingBox = {}
+
+      const fetchBoundingBox = () => {
+        if(intervalCount > 20) return clearInterval(intervalId)
+        compareFaces().then((res => {
+          if(res.FaceMatches.length) {
+              boundingBox = {
+                height: res.FaceMatches[0].Face.BoundingBox.Height * canvas.height,
+                left: res.FaceMatches[0].Face.BoundingBox.Left * canvas.width,
+                top: res.FaceMatches[0].Face.BoundingBox.Top * canvas.height,
+                width: res.FaceMatches[0].Face.BoundingBox.Height * canvas.width
               }
               me.message ='見つかりました！'
-            } else {
-              me.faceBoundingBox = {}
-              me.message ='探しています...'
-            }
-          }).catch(e => {
-            me.faceBoundingBox = {}
-            me.message = '探しています...'
-          })
-        } else if (count >= 3000) {
-           me.faceBoundingBox = {}
-           me.message = '探索を終了します。'
-           me.stopSearch()
-        }
-
-
-        if(Object.keys(faceBoundingBox).length){
-          ctx.lineWidth = 2
-          ctx.strokeStyle = 'red'
-          ctx.beginPath()
-          console.log(faceBoundingBox)
-          ctx.rect(faceBoundingBox.Left * canvas.width,
-            faceBoundingBox.Top * canvas.height,
-            faceBoundingBox.Width * canvas.width,
-            faceBoundingBox.Height * canvas.height,
-          )
-          ctx.stroke()
-        }
-                
-        me.animationFrameCallbackId = window.requestAnimationFrame(tick)
+          } else {
+            me.boundingBox = {}
+            me.message ='探しています...'
+          }
+        }))
+        intervalCount++
       }
+
+      let intervalCount = 0
+      let intervalId = window.setInterval(fetchBoundingBox, 3000)
+      window.setInterval(function() {
+        sampleRect = randomRect()
+        console.log({sampleRect, boundingBox})
+      }, 1000)
+
+      const randomRect = (() => {
+        const random = ((min, max) => {
+          return Math.floor( Math.random() * (max + 1 - min) ) + min
+        })
+        return {
+          left: random(1, 100),
+          top: random(1, 100),
+          width: random(1, 100),
+          height: random(1, 100),
+        }
+      })
+
+      navigator.mediaDevices.getUserMedia(constrains).then((stream) => {
+        const settings = stream.getVideoTracks()[0].getSettings()
+        video.srcObject = stream
+        video.onloadedmetadata = (() => {
+          video.play()
+          // canvas.width = video.videoWidth
+          // canvas.height = video.videoHeight
+          canvas.width = settings.width
+          canvas.height = settings.height
+          drawCanvasLoop()
+        })
+      })
     },
+
+    // startAutoMode: async function() {
+    //   // if(!this.uploadedImage) return window.alert('画像を選択してください')
+    //   // Video
+    //   const video = document.createElement("video")
+    //   const constrains = {
+    //                         video: {
+    //                           facingMode: "environment"
+    //                         },
+    //                         audio: false
+    //                      }
+    //   const stream = await navigator.mediaDevices.getUserMedia(constrains)
+    //   video.srcObject = stream
+    //   // 表示用Canvas
+    //   const canvas = document.getElementById("canvas")
+    //   const ctx = canvas.getContext("2d")
+    //   // 処理用Canvas
+    //   const offscreenCanvas = document.createElement("canvas")
+    //   const offscreenCtx = offscreenCanvas.getContext("2d")
+
+    //   var count = 0
+
+    //   const sourceImage = this.uploadedImage
+
+    //   var BoundingBox = {
+    //     Height: Math.random(),
+    //     Left: Math.random(),
+    //     Top: Math.random(),
+    //     Width: Math.random()
+    //   }
+
+    //   let faceBoundingBox = {}
+
+    //   var me = this
+    //   video.setAttribute("playsinline", true)
+    //   video.onloadedmetadata = () => {
+    //     video.play()
+    //     canvas.width = offscreenCanvas.width = video.videoWidth
+    //     canvas.height = offscreenCanvas.height = video.videoHeight
+        
+    //     let animationFrameCallbackId = this.animationFrameCallbackId
+    //     tick()
+    //   }
+
+    //   const compareFaces = async(source, target) => {
+    //     const rekognition = new AWS.Rekognition()
+    //     const sourceImage = this.base64ToBinary(source)
+    //     const targetImage = this.base64ToBinary(target)
+    //     const params = {
+    //       // SimilarityThureshold: 70,
+    //       SourceImage: { Bytes: sourceImage },
+    //       TargetImage: { Bytes: targetImage }
+    //     }
+    //     const fetchAPI = () => new Promise((resolve, reject) => {
+    //       rekognition.compareFaces(params, (err, data) => {
+    //         if(err) {
+    //           console.log(err, err.stack)
+    //           reject(err) 
+    //         } else {
+    //           console.log(data)
+    //           resolve(data)
+    //         }
+    //       })
+    //     })
+    //     return fetchAPI().then((res => {
+    //       return res
+    //     }))
+    //   }
+      
+
+    //   const tick = function(animationFrameCallbackId) {
+    //     count ++
+    //     offscreenCtx.drawImage(video, 0, 0)        
+    //     const image = offscreenCtx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height)
+    //     offscreenCtx.putImageData(image, 0, 0)
+    //     ctx.drawImage(offscreenCanvas, 0, 0)
+
+    //     // if(false) {
+    //     if(count % 30 === 0 && count <= 1000) {
+    //       const targetImage = offscreenCanvas.toDataURL('image/jpeg')
+    //       compareFaces(sourceImage, targetImage).then(result => {
+    //         console.log(result)
+    //         if(result.FaceMatches.length) {
+    //           faceBoundingBox = {
+    //             Height: result.FaceMatches[0].Face.BoundingBox.Height,
+    //             Left: result.FaceMatches[0].Face.BoundingBox.Left,
+    //             Top: result.FaceMatches[0].Face.BoundingBox.Top,
+    //             Width: result.FaceMatches[0].Face.BoundingBox.Height
+    //           }
+    //           me.message ='見つかりました！'
+    //         } else {
+    //           me.faceBoundingBox = {}
+    //           me.message ='探しています...'
+    //         }
+    //       }).catch(e => {
+    //         me.faceBoundingBox = {}
+    //         me.message = '探しています...'
+    //       })
+    //     } else if (count >= 3000) {
+    //        me.faceBoundingBox = {}
+    //        me.message = '探索を終了します。'
+    //        me.stopSearch()
+    //     }
+
+
+    //     if(Object.keys(faceBoundingBox).length){
+    //       ctx.lineWidth = 2
+    //       ctx.strokeStyle = 'red'
+    //       ctx.beginPath()
+    //       console.log(faceBoundingBox)
+    //       ctx.rect(faceBoundingBox.Left * canvas.width,
+    //         faceBoundingBox.Top * canvas.height,
+    //         faceBoundingBox.Width * canvas.width,
+    //         faceBoundingBox.Height * canvas.height,
+    //       )
+    //       ctx.stroke()
+    //     }
+                
+    //     me.animationFrameCallbackId = window.requestAnimationFrame(tick)
+    //   }
+    // },
 
     stopSearch: function(animationFrameCallbackId) {
       cancelAnimationFrame(animationFrameCallbackId)
