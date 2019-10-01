@@ -1,6 +1,7 @@
 <template>
   <v-container>
-    <v-row>
+    <video id="video" autoplay playsinline></video>
+    <!-- <v-row>
       <v-col>
         <v-card class="pb-5">
           <v-card-title>Step1. 探したい人物一人だけが写った写真を選択します</v-card-title>
@@ -23,8 +24,11 @@
         <v-card-actions>
           <v-btn v-on:click="startAutoMode">再捜索</v-btn>
           <v-btn v-on:click="stopSearch(animationFrameCallbackId)">停止</v-btn>
+          <v-btn v-on:click="onStart">START</v-btn>
+          <v-btn v-on:click="indexFaces">indexFaces</v-btn>
         </v-card-actions>
         <v-card-text>{{ message }}</v-card-text>
+        <video id="video" autoplay playsinline></video>
         <canvas id="canvas"></canvas>
         
       </v-card>
@@ -37,7 +41,7 @@
          <v-card-text>検知した画像をリストにします</v-card-text>
        </v-card>
      </v-col>
-   </v-row>
+   </v-row> -->
   </v-container>
 </template>
 <script>
@@ -68,6 +72,12 @@ export default {
   },
 
   methods: {
+    onStart: function() {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
+        const video = document.getElementById('video')
+        video.srcObject = stream;
+      })
+    },
     startAutoMode: function() {
       let me = this
       const video = document.createElement("video")
@@ -75,7 +85,11 @@ export default {
 
       const constrains = {
                                   video: {
-                                    facingMode: "environment"
+                                    facingMode: "environment",
+                                    frameRate: {
+                                      ideal: 15,
+                                      max: 30
+                                    }
                                   },
                                   audio: false
                               }

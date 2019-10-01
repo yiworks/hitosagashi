@@ -21,7 +21,7 @@ export default {
 <style scoped>
 .wallpaper {
   background: url("./static/images/wallpaper.jpg");
-  /* background-size: cover; */
+  background-size: cover;
 }
 
 </style>
