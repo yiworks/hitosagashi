@@ -1,48 +1,97 @@
 <template>
-  <v-container>
-    <video id="video" autoplay playsinline></video>
-    <!-- <v-row>
+  <div>
+    <v-container>
+      <input id="fileInput" type="file" style="display:none" v-on:change="onFileChange()"/>
+      <!-- <v-row class="photo-selector">
+        <v-file-input label="写真を選択" filled  prepend-icon="mdi-camera" @change="onFileChange"></v-file-input>
+      </v-row> -->
+      <v-row>
+        <video id="video" autoplay playsinline="true"></video>
+        <canvas id="canvas"></canvas>
+      </v-row>
+      
+      <!-- <v-row>
+        <v-col>
+          <v-card class="pb-5">
+            <v-card-title>Step1. 探したい人物一人だけが写った写真を選択します</v-card-title>
+            <v-card-actions>
+              <v-file-input label="写真を選択" filled  prepend-icon="mdi-camera" @change="onFileChange"></v-file-input>
+            </v-card-actions>
+            <v-img
+              :src="uploadedImage"
+              v-show="uploadedImage"
+              max-height="300"
+              contain
+            ></v-img>
+          </v-card>
+        </v-col>
+      </v-row>
+    <v-row>
       <v-col>
-        <v-card class="pb-5">
-          <v-card-title>Step1. 探したい人物一人だけが写った写真を選択します</v-card-title>
+        <v-card>
+          <v-card-title>Step2. カメラが起動したら捜索が始まります</v-card-title>
           <v-card-actions>
-            <v-file-input label="写真を選択" filled  prepend-icon="mdi-camera" @change="onFileChange"></v-file-input>
+            <v-btn v-on:click="startAutoMode">再捜索</v-btn>
+            <v-btn v-on:click="stopSearch(animationFrameCallbackId)">停止</v-btn>
+            <v-btn v-on:click="onStart">START</v-btn>
+            <v-btn v-on:click="indexFaces">indexFaces</v-btn>
           </v-card-actions>
-          <v-img
-            :src="uploadedImage"
-            v-show="uploadedImage"
-            max-height="300"
-            contain
-          ></v-img>
+          <v-card-text>{{ message }}</v-card-text>
+          <video id="video" autoplay playsinline></video>
+          <canvas id="canvas"></canvas>
+          
         </v-card>
       </v-col>
     </v-row>
-   <v-row>
-     <v-col>
-      <v-card>
-        <v-card-title>Step2. カメラが起動したら捜索が始まります</v-card-title>
-        <v-card-actions>
-          <v-btn v-on:click="startAutoMode">再捜索</v-btn>
-          <v-btn v-on:click="stopSearch(animationFrameCallbackId)">停止</v-btn>
-          <v-btn v-on:click="onStart">START</v-btn>
-          <v-btn v-on:click="indexFaces">indexFaces</v-btn>
-        </v-card-actions>
-        <v-card-text>{{ message }}</v-card-text>
-        <video id="video" autoplay playsinline></video>
-        <canvas id="canvas"></canvas>
-        
-      </v-card>
-     </v-col>
-   </v-row>
-   <v-row>
-     <v-col>
-       <v-card>
-         <v-card-title>To Be Continued...</v-card-title>
-         <v-card-text>検知した画像をリストにします</v-card-text>
-       </v-card>
-     </v-col>
-   </v-row> -->
-  </v-container>
+    <v-row>
+      <v-col>
+        <v-card>
+          <v-card-title>To Be Continued...</v-card-title>
+          <v-card-text>検知した画像をリストにします</v-card-text>
+        </v-card>
+      </v-col>
+    </v-row> -->
+      <!-- <v-bottom-navigation
+        v-if="$route.path !== '/'"
+        class="align-center"
+        absolute="true"
+      >
+        <v-btn value="recent">
+          <span>Recent</span>
+          <v-icon>mdi-history</v-icon>
+        </v-btn>
+
+        <v-btn value="selectImage" onclick="console.log('foo')">
+          <span>画像を選択</span>
+          <v-icon>mdi-camera</v-icon>
+        </v-btn>
+
+        <v-btn value="nearby">
+          <span>Nearby</span>
+          <v-icon>mdi-map-marker</v-icon>
+        </v-btn>
+      </v-bottom-navigation> -->
+    </v-container>
+    <v-toolbar
+        :absolute="true"
+        :bottom="true"
+        min-width="100%"
+    >
+      <v-spacer></v-spacer>
+      <v-btn icon>
+        <v-icon>mdi-view-module</v-icon>
+      </v-btn>
+      <div class="flex-grow-1"></div>
+      <v-btn icon onclick="document.getElementById('fileInput').click()">
+        <v-icon>mdi-image</v-icon>
+      </v-btn>
+      <div class="flex-grow-1"></div>
+      <v-btn icon v-on:click="rectTest">
+        <v-icon>mdi-refresh</v-icon>
+      </v-btn>
+      <v-spacer></v-spacer>
+    </v-toolbar>
+  </div>
 </template>
 <script>
 import axios from 'axios'
@@ -70,13 +119,92 @@ export default {
       this.startAutoMode()
     }
   },
+  // video test
+  // const video = document.getElementById("video")
+  mounted: function () {
+    const video = document.getElementById('video')
+    const canvas = document.getElementById('canvas')
+    const constrains = {
+        video: {
+          width: video.clientWidth,
+          height: video.clientHeight,
+          facingMode: "environment",
+          frameRate: {
+            ideal: 15,
+            max: 30
+          }
+        },
+        audio: false
+    }
+    if(!!navigator.mediaDevices&&!!navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia(constrains).then((stream) => {
+        const settings = stream.getVideoTracks()[0].getSettings()
+        video.srcObject = stream
+        video.onloadedmetadata = (() => {
+          video.play()
+          console.log(video.clientWidth, video.clientHeight)
+          console.log(video.videoWidth, video.videoHeight, settings.width, settings.height)
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          // canvas.width = video.clientWidth
+          // canvas.height = video.clientHeight
+          // canvas.width = settings.width
+          // canvas.height = settings.height
+        })
+      })
+    } else {
+      return window.alert("非対応機種です。申し訳ございません。")
+    }
+  },
 
   methods: {
-    onStart: function() {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-        const video = document.getElementById('video')
-        video.srcObject = stream;
+    rectTest: function() {
+      const video = document.getElementById("video")
+      const randomRect = (() => {
+        const random = ((min, max) => {
+          return Math.floor( Math.random() * (max + 1 - min) ) + min
+        })
+        return {
+          left: random(1, 100),
+          top: random(1, 100),
+          width: random(1, 100),
+          height: random(1, 100),
+        }
       })
+
+      let boundingBox = randomRect()
+
+      const canvas = document.getElementById("canvas")
+      const ctx = canvas.getContext("2d")
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      
+      console.log(video.videoWidth, video.videoHeight)
+      console.log(video.width, video.height)
+      console.log(canvas.width, canvas.height)
+
+      let animationFrameCallbackId = 0
+      const drawCanvasLoop = ((animationFrameCallbackId) => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.beginPath()
+        ctx.drawImage(video, 0, 0)
+        drawRect()
+        animationFrameCallbackId = window.requestAnimationFrame(drawCanvasLoop)
+      })
+      const drawRect = (() => {
+        if(boundingBox.length === 0) return
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'red'
+        ctx.rect(
+          boundingBox.left,
+          boundingBox.top,
+          boundingBox.width,
+          boundingBox.height
+        )
+        ctx.stroke()
+      })
+
+      drawCanvasLoop()
     },
     startAutoMode: function() {
       let me = this
@@ -469,3 +597,32 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+.photo-selector {
+  width: 100%;
+  position: relative;
+  top: 0;
+  margin: auto;
+}
+#video {
+  width: 100%;
+  height: 80%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+#canvas {
+  width: 100%;
+  height: 80%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  margin: auto;
+}
+</style>
