@@ -9,6 +9,9 @@
           <h1 class="display-2 mb-3">
             <img src="../static/images/logo.png" alt="ロゴ" style="width: 80%; max-width: 500px;">
           </h1>
+          <h2 class="display-2 mb-3">
+            <img src="../static/images/logo_s.png" alt="サブロゴ" style="width: 80%; max-width: 500px;">
+          </h2>
           <p class="subheading font-weight-regular mt-10 mb-5">
             大勢の人の中からでも<br>見つけたい人を見つけ出せます<br><br>
             カメラをかざして人を見つけてみましょう
