@@ -79,7 +79,7 @@ export default {
       // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // video
       var video = document.createElement('video')
-      var constrains = { video: true, audio: false }
+      var constrains = { video: { facingMode: "environment" }, audio: false }
       const stream = await navigator.mediaDevices.getUserMedia(constrains)
       video.srcObject = stream
       // 表示用Canvas
@@ -205,7 +205,9 @@ export default {
       // if(!this.uploadedImage) return window.alert('画像を選択してください')
       // Video
       const video = document.createElement("video")
-      const constrains = { video: true, audio: false }
+      video.setAttribute("playsinline", true)
+      video.setAttribute("autoplay", true)
+      const constrains = { video: { facingMode: "environment" }, audio: false }
       const stream = await navigator.mediaDevices.getUserMedia(constrains)
       video.srcObject = stream
       // 表示用Canvas

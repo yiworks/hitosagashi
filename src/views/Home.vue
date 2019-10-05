@@ -20,6 +20,7 @@
         <br>
         <v-content>
           <v-btn to="/camera-auto" outlined x-large class="font-weight-bold">はじめる</v-btn>
+          <v-btn to="/camera" outlined x-large class="font-weight-bold">test</v-btn>
         </v-content>
       </v-flex>
     </v-layout>
